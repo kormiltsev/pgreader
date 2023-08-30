@@ -2,7 +2,6 @@ package methods
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -23,12 +22,11 @@ func NewConfig() *Settingos {
 	return &Settingos{}
 }
 
-func funWithFlags() string {
-	DBconnectionlink := flag.String("d", "", "DB connection link")
-	flag.Parse()
-	return *DBconnectionlink
-}
-
+// PrintPostgressTablesInfo is printing information about PostgreSQL DB
+// - quantity of tables
+// - Size of DB
+// - list of tables with rows quantity
+//   - list of row's names (with type)
 func PrintPostgressTablesInfo(ctx context.Context, dbURL ...string) {
 
 	// 1.
@@ -146,19 +144,26 @@ func (con *Settingos) gotoenvfile() {
 func NewConnect(ctx context.Context, dbURL ...string) (*Settingos, error) {
 	con := NewConfig()
 
-	if len(dbURL) != 0 {
-		if dbURL[0] != "" {
-			con.DBlink = dbURL[0]
-		}
+	// if URL was provided in parameters
+	if len(dbURL) != 0 && dbURL[0] != "" {
+		con.DBlink = dbURL[0]
 	} else {
-		con.gotoenvfile()
+		// read ENV, looking for DATABASE_URL
 		con.environment()
+		if con.DBlink == "" {
+			log.Println("No data ENV DATABASE_URL, read DB URL from .env file")
+			// read .env file, looking for DATABASE_URL
+			con.gotoenvfile()
+		}
 	}
 
+	// return error
 	if con.DBlink == "" {
 		return nil, fmt.Errorf("no database_url was found. use NewConnect(ctx, database_url)")
 	}
+
 	var err error
+
 	con.DB, err = pgx.Connect(ctx, con.DBlink)
 	if err != nil {
 		return nil, err
